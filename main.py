@@ -1,17 +1,12 @@
 from fastapi import FastAPI
-import pandas as pd
-from sklearn.preprocessing import OrdinalEncoder
-from sklearn import tree
-from sklearn.model_selection import train_test_split
 from pydantic import BaseModel
 from joblib import dump, load
-import numpy as np
 
 app = FastAPI()
 
-clf1 = load('tree1.joblib')
-clf2 = load('tree2.joblib')
-tablas_enc = np.load('file.npy', allow_pickle='TRUE')
+clf1 = load('tree1b.joblib')
+clf2 = load('tree2b.joblib')
+tablas_enc = load('tablesa.joblib')
 
 class Item(BaseModel):
   Edadcat: str
