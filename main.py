@@ -4,148 +4,15 @@ from sklearn.preprocessing import OrdinalEncoder
 from sklearn import tree
 from sklearn.model_selection import train_test_split
 from pydantic import BaseModel
-import uvicorn
+from joblib import dump, load
+import numpy as np
 
 app = FastAPI()
 
-df = pd.read_excel("2. Datos para entrenar.xlsx",engine='openpyxl')
-filtro=[]
-for i,j in enumerate(df['fecha_nacimiento']):
-    filter=type(df['fecha_nacimiento'][0])
-    if type(j)==filter:
-        filtro.append(True)
-    else:
-        filtro.append(False) 
-df=df[filtro]
-edad=[]
-for k,h in enumerate(df['fecha_nacimiento']):
-    edad.append(2022-h.year)
-df['Edad']=edad
+clf1 = load('tree1.joblib')
+clf2 = load('tree2.joblib')
+tablas_enc = np.load('file.npy', allow_pickle='TRUE')
 
-salidas1= df[['consulta_id','cups_solictud','descripcion','cantidad','prescripcion','tipo','codigo_medicamento','descripcion_medicamento','cantidad_medicamento','prescripcion_medicamento']]
-entradas= df.drop(['diagnostico_secundario','diagnostico_terciario','cuarto_diagnostico','presentacion','fecha_nacimiento','cita_id','id_solicitud_enviada','medicamento_enviado',"TEST_HERRERA_Y_HURTADO",'cups_solictud','descripcion','cantidad','prescripcion','tipo','codigo_medicamento','descripcion_medicamento','cantidad_medicamento','prescripcion_medicamento'], axis=1)
-salidas1=salidas1.fillna(0)
-entradas=entradas.fillna(0)
-cups_solictud=[]
-descripcion=[]
-cantidad=[]
-prescripcion=[]
-tipo=[]
-codigo_medicamento=[]
-descripcion_medicamento=[]
-cantidad_medicamento=[]
-prescripcion_medicamento=[]
-#presentacion=[]
-enes=[]
-for n in salidas1['consulta_id'].drop_duplicates():
-    if len(salidas1[salidas1['consulta_id']==n])>0:
-        cups_solictud1=' '
-        descripcion1=' '
-        cantidad1=' '
-        prescripcion1=' '
-        tipo1=' '
-        codigo_medicamento1=' '
-        descripcion_medicamento1=''
-        cantidad_medicamento1=''
-        prescripcion_medicamento1=''
-        #presentacion1=''
-        for k in range(len(salidas1[salidas1['consulta_id']==n])):
-            cups_solictud1=cups_solictud1+'-'+str(salidas1[salidas1['consulta_id']==n]['cups_solictud'].to_list()[k])
-            descripcion1=descripcion1+'-'+str(salidas1[salidas1['consulta_id']==n]['descripcion'].to_list()[k])
-            cantidad1=cantidad1+'-'+str(salidas1[salidas1['consulta_id']==n]['cantidad'].to_list()[k])
-            prescripcion1=prescripcion1+'-'+str(salidas1[salidas1['consulta_id']==n]['prescripcion'].to_list()[k])
-            tipo1=tipo1+'-'+str(salidas1[salidas1['consulta_id']==n]['tipo'].to_list()[k])
-            codigo_medicamento1=codigo_medicamento1+'-'+str(salidas1[salidas1['consulta_id']==n]['codigo_medicamento'].to_list()[k])
-            descripcion_medicamento1=descripcion_medicamento1+'-'+str(salidas1[salidas1['consulta_id']==n]['descripcion_medicamento'].to_list()[k])
-            cantidad_medicamento1=cantidad_medicamento1+'-'+str(salidas1[salidas1['consulta_id']==n]['cantidad_medicamento'].to_list()[k])
-            prescripcion_medicamento1=prescripcion_medicamento1+'-'+str(salidas1[salidas1['consulta_id']==n]['prescripcion_medicamento'].to_list()[k])
-            #presentacion1=presentacion1+'-'+str(salidas1[salidas1['consulta_id']==n]['presentacion'].to_list()[k])
-        cups_solictud.append(cups_solictud1)
-        descripcion.append(descripcion1)
-        cantidad.append(cantidad1)
-        prescripcion.append(prescripcion1)
-        tipo.append(tipo1)
-        codigo_medicamento.append(codigo_medicamento1)
-        descripcion_medicamento.append(descripcion_medicamento1)
-        cantidad_medicamento.append(cantidad_medicamento1)
-        prescripcion_medicamento.append(prescripcion_medicamento1)
-        #presentacion.append(presentacion1)
-        enes.append(n)
-    else:
-        continue
-salidas = pd.DataFrame()
-salidas['consulta_id']=enes
-salidas['cups_solictud']=cups_solictud
-salidas['descripcion']=descripcion
-salidas['cantidad']=cantidad
-salidas['prescripcion']=prescripcion
-salidas['tipo']=tipo
-salidas['codigo_medicamento']=codigo_medicamento
-salidas['descripcion_medicamento']=descripcion_medicamento
-salidas['cantidad_medicamento']=cantidad_medicamento
-salidas['prescripcion_medicamento']=prescripcion_medicamento
-#salidas['presentacion']=presentacion
-for j in entradas['consulta_id'].drop_duplicates():
-    if j in enes:
-        continue
-    else:
-        entradas = entradas.drop(entradas[entradas[j]==True].index)
-entradas['consulta_id']=entradas['consulta_id'].drop_duplicates().dropna()
-entradas=entradas.dropna()
-entradas=entradas.sort_values(by=['consulta_id'])
-salidas=salidas.sort_values(by=['consulta_id'])
-entradas=entradas.drop(columns=['consulta_id'])
-salidas=salidas.drop(columns=['consulta_id'])
-entradas['T_A'] = entradas['T_A'].str.replace('-','/')
-t_a = entradas["T_A"].str.split('/', expand=True)
-t_a.columns = ['T_A1', 'T_A2']
-entradas = pd.concat([entradas, t_a], axis=1)
-entradas['TEST_DE_FINDRISK']=entradas['TEST_DE_FINDRISK'].astype(str).apply(lambda x: x[:2]).str.replace(':',' ').astype(float)
-entradas['TASA_DE_FILTRACION_GLOMERULAR']=entradas['TASA_DE_FILTRACION_GLOMERULAR'].astype(str).apply(lambda x: x[:2]).astype(float)
-entradas['TEST_DE_FRAMINGHAM']=entradas['TEST_DE_FRAMINGHAM'].astype(str).apply(lambda x: x[:1]).str.replace('%',' ').astype(float)
-salidas=salidas.fillna(0)
-entradas=entradas.fillna(0)
-entradas=entradas.drop(['T_A'], axis=1)
-clf=tree.DecisionTreeClassifier(criterion='gini',random_state=50,max_depth=15,ccp_alpha=0.01,splitter='best')
-tablas_enc = dict()
-i=0
-for j in entradas.columns.tolist():
-    entradas[j]=entradas[j].fillna(0)
-    if entradas[j].dtype=='O':
-        entradas[j]=entradas[j].astype(str)
-        tablas_enc[j] = OrdinalEncoder(categories=[entradas[j].unique().tolist()])
-        tablas_enc[j].fit(entradas[[j]])
-        entradas[j+'cat']= tablas_enc[j].transform(entradas[[j]])
-    else:
-        entradas[j+'cat'] = entradas[j]
-        continue
-for i in salidas.columns.tolist():
-    salidas[i]=salidas[i].fillna(0)
-    if salidas[i].dtype=='O':
-        salidas[i]=salidas[i].astype(str)
-        tablas_enc[i]=OrdinalEncoder(categories=[salidas[i].unique().tolist()])
-        tablas_enc[i].fit(salidas[[i]])
-        salidas[i+'cat'] = tablas_enc[i].transform(salidas[[i]])
-    else:
-        salidas[i+'cat'] = salidas[i]
-        continue
-salidas_cat=[]
-for k in salidas.columns.tolist():
-    if 'cat' in k:
-        salidas_cat.append(k)
-    else:
-        continue
-entradas_cat=[]
-for h in entradas.columns.tolist():
-    if 'cat' in h:
-        entradas_cat.append(h)
-    else:
-        continue
-Y=salidas[salidas_cat]
-X=entradas[entradas_cat]
-X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.20)
-
-clf=clf.fit(X_train, y_train)
 class Item(BaseModel):
   Edadcat: str
   sexocat: str
@@ -164,8 +31,6 @@ class Item(BaseModel):
   #cuarto_diagnosticocat: str
   T_a1cat:str
   T_a2cat: str
-
-
 
 @app.post("/")
 async def root(item: Item):
@@ -187,17 +52,21 @@ async def root(item: Item):
     #dato_en.append(tablas_enc['cuarto_diagnostico'].fit_transform([[item.cuarto_diagnosticocat]]))#cuarto_diagnostico
     dato_en.append(int(item.T_a1cat))#T_a1
     dato_en.append(int(item.T_a2cat))#T_a2
-    prediccion= clf.predict([dato_en])
+    prediccion= clf1.predict([dato_en])
     lists = prediccion.tolist()
-    respuesta1={               
-          "cups_solictud":tablas_enc['cups_solictud'].inverse_transform([[prediccion[0][0]]])[0][0],
-          "descripcion" :tablas_enc['descripcion'].inverse_transform([[prediccion[0][1]]])[0][0],
-          "cantidad":tablas_enc['cantidad'].inverse_transform([[prediccion[0][2]]])[0][0],
-          "prescripcion": tablas_enc['prescripcion'].inverse_transform([[prediccion[0][3]]])[0][0][0][0],
-          "tipo": tablas_enc['tipo'].inverse_transform([[prediccion[0][4]]])[0][0],
-          "codigo_medicamento":tablas_enc['codigo_medicamento'].inverse_transform([[prediccion[0][5]]])[0][0],
-          "descripcion_medicamento":tablas_enc['descripcion_medicamento'].inverse_transform([[prediccion[0][6]]])[0][0],
-          "cantidad_medicamento":tablas_enc['cantidad_medicamento'].inverse_transform([[prediccion[0][7]]])[0][0],
-          "prescripcion_medicamento":tablas_enc['prescripcion_medicamento'].inverse_transform([[prediccion[0][7]]])[0][0]
+    prediccion2= clf2.predict(lists)
+    lists2 = prediccion2.tolist()
+    lists = prediccion.tolist()
+    respuesta1={
+        "cups_solictud":tablas_enc['cups_solictud'].inverse_transform([[prediccion[0][0]]])[0][0],
+        "descripcion" :tablas_enc['descripcion'].inverse_transform([[prediccion[0][1]]])[0][0],
+        "cantidad":tablas_enc['cantidad'].inverse_transform([[prediccion[0][2]]])[0][0],
+        "prescripcion": tablas_enc['prescripcion'].inverse_transform([[prediccion[0][3]]])[0][0][0][0],
+        "tipo": tablas_enc['tipo'].inverse_transform([[prediccion[0][4]]])[0][0],
+        "codigo_medicamento":tablas_enc['codigo_medicamento'].inverse_transform([[prediccion2[0][0]]])[0][0],
+        "descripcion_medicamento":tablas_enc['descripcion_medicamento'].inverse_transform([[prediccion2[0][1]]])[0][0],
+        "cantidad_medicamento":tablas_enc['cantidad_medicamento'].inverse_transform([[prediccion2[0][2]]])[0][0],
+        "prescripcion_medicamento":tablas_enc['prescripcion_medicamento'].inverse_transform([[prediccion2[0][3]]])[0][0],
+        #"presentacion":tablas_enc['presentacion'].inverse_transform([[prediccion2[0][4]]])[0][0]
         }
     return respuesta1

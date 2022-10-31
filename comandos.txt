@@ -1,7 +1,0 @@
-uvicorn main:app --reload
-docker build -t simple_app .
-docker images
-docker run -it -p 8080:8080 -d app_despliegue
-docker ps
-docker start -a contenedor
-
